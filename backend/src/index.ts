@@ -548,7 +548,7 @@ app.post("/api/interview/evaluate", authMiddleware, async (req: AuthRequest, res
     const model = genAI.getGenerativeModel({ model: geminiModel });
 
     const formatted = answers
-      .map((item, index) => `Q${index + 1}: ${item.question}\nA${index + 1}: ${item.answer}`)
+      .map((item: { question?: string; answer?: string }, index: number) => `Q${index + 1}: ${item.question}\nA${index + 1}: ${item.answer}`)
       .join("\n\n");
 
     const prompt = `You are an interview coach. Review the answers for the domain: ${domain}.
