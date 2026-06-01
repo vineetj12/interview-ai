@@ -1,0 +1,166 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ─── Design Tokens (from Stitch "Premium Glass Tech") ─── */
+:root {
+  /* Background & Surface */
+  --bg:                      #0A0A0F;
+  --surface:                 #131318;
+  --surface-low:             #1b1b20;
+  --surface-container:       #1f1f25;
+  --surface-high:            #2a292f;
+  --surface-highest:         #35343a;
+  --surface-bright:          #39383e;
+
+  /* Primary – Electric Violet */
+  --primary:                 #6C63FF;
+  --primary-dim:             #c4c0ff;
+  --primary-container:       #8781ff;
+  --on-primary:              #ffffff;
+
+  /* Secondary – Indigo */
+  --secondary:               #4F46E5;
+  --secondary-container:     #3626ce;
+  --on-secondary-container:  #b3b1ff;
+
+  /* Tertiary – Amber accent */
+  --tertiary:                #ffb785;
+
+  /* Text */
+  --text:                    #e4e1e9;
+  --text-muted:              #c7c4d8;
+  --text-faint:              #918fa1;
+
+  /* Borders */
+  --border:                  rgba(255,255,255,0.08);
+  --border-muted:            rgba(255,255,255,0.05);
+  --border-accent:           rgba(108,99,255,0.4);
+
+  /* State colors */
+  --success:                 #10B981;
+  --success-bg:              rgba(16,185,129,0.12);
+  --success-border:          rgba(16,185,129,0.35);
+  --error:                   #EF4444;
+  --error-bg:                rgba(239,68,68,0.12);
+  --error-border:            rgba(239,68,68,0.35);
+
+  /* Glass */
+  --glass-bg:                rgba(255,255,255,0.04);
+  --glass-bg-hover:          rgba(255,255,255,0.07);
+  --glass-blur:              blur(16px);
+  --glass-blur-heavy:        blur(24px);
+
+  /* Shadows */
+  --shadow-primary:          0 0 40px rgba(108,99,255,0.25);
+  --shadow-card:             0 8px 32px rgba(0,0,0,0.5);
+  --shadow-btn:              0 0 20px rgba(108,99,255,0.45);
+
+  /* Typography */
+  --font:                    'Inter', 'Segoe UI', sans-serif;
+
+  font-size: 16px;
+  font-family: var(--font);
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  background: var(--bg);
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100svh;
+  position: relative;
+}
+
+h1, h2, h3, h4, h5 {
+  font-family: var(--font);
+  color: var(--text);
+  margin: 0;
+  line-height: 1.2;
+}
+
+p {
+  margin: 0;
+}
+
+button, input, textarea, select {
+  font-family: var(--font);
+}
+
+/* ─── Animated Background Orbs ─── */
+.bg-orbs {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.bg-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.35;
+}
+
+.bg-orb-1 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, #6C63FF 0%, transparent 70%);
+  top: -200px;
+  left: -150px;
+  animation: orbDrift1 18s ease-in-out infinite alternate;
+}
+
+.bg-orb-2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, #4F46E5 0%, transparent 70%);
+  bottom: -100px;
+  right: -100px;
+  animation: orbDrift2 22s ease-in-out infinite alternate;
+}
+
+.bg-orb-3 {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, #312E81 0%, transparent 70%);
+  top: 40%;
+  left: 40%;
+  animation: orbDrift3 28s ease-in-out infinite alternate;
+}
+
+@keyframes orbDrift1 {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(80px, 60px) scale(1.15); }
+}
+@keyframes orbDrift2 {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(-60px, -80px) scale(1.1); }
+}
+@keyframes orbDrift3 {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(40px, -50px) scale(0.9); }
+}
+
+/* ─── Utility ─── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+}

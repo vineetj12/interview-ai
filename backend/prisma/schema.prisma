@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  passwordHash      String
+  createdAt         DateTime           @default(now())
+  interviewSessions InterviewSession[]
+  refreshTokens     RefreshToken[]
+
+  @@index([email])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model InterviewSession {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domain            String
+  overallScore      Int?
+  gazeScore         Int?
+  postureScore      Int?
+  calmScore         Int?
+  engagementScore   Int?
+  bodyLanguageScore Int?
+  stressTimeline    Json?    // Array of TelemetryPoint { questionIndex, stress, engagement, emotion, posture, timestamp }
+  metricsDetail     Json?    // Detailed CV metrics (lighting, background, smile, head nodding, blink rate, etc.)
+  feedback          Json?    // Evaluation results (summary, strengths, improvements, coachingTips)
+  createdAt         DateTime @default(now())
+
+  @@index([userId])
+  @@index([domain])
+  @@index([createdAt])
+}

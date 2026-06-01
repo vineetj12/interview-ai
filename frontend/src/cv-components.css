@@ -1,0 +1,571 @@
+/* ══════════════════════════════════════════════════════════════════════
+   InterviewAI — Computer Vision Components Stylesheet
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Webcam Feed ──────────────────────────────────────────────────── */
+.webcam-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.webcam-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(10, 10, 30, 0.8);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  box-shadow: 0 0 40px rgba(167, 139, 250, 0.08);
+}
+
+.webcam-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.webcam-canvas-hidden {
+  display: none;
+}
+
+.webcam-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transform: scaleX(-1);
+}
+
+.webcam-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(10, 10, 30, 0.95);
+}
+
+.webcam-placeholder-icon {
+  font-size: 48px;
+  opacity: 0.4;
+}
+
+.webcam-placeholder p {
+  font-size: 13px;
+  color: var(--text-muted, #888);
+}
+
+/* ── CV Buttons ───────────────────────────────────────────────────── */
+.btn-cv {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cv.start {
+  background: linear-gradient(135deg, #7c3aed, #a78bfa);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.3);
+}
+
+.btn-cv.start:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(124, 58, 237, 0.4);
+}
+
+.btn-cv.stop {
+  background: rgba(255, 68, 102, 0.15);
+  color: #ff4466;
+  border: 1px solid rgba(255, 68, 102, 0.3);
+}
+
+.btn-cv.stop:hover {
+  background: rgba(255, 68, 102, 0.25);
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00ffc8;
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 4px #00ffc8; opacity: 1; }
+  50% { box-shadow: 0 0 12px #00ffc8; opacity: 0.6; }
+}
+
+/* ── Webcam Badges ────────────────────────────────────────────────── */
+.webcam-badge {
+  position: absolute;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 2;
+}
+
+.webcam-badge.top-left {
+  top: 12px;
+  left: 12px;
+  color: #ff4466;
+}
+
+.webcam-badge.top-right {
+  top: 12px;
+  right: 12px;
+}
+
+.rec-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff4466;
+  margin-right: 6px;
+  animation: rec-blink 1s ease-in-out infinite;
+}
+
+@keyframes rec-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+/* ── Bottom HUD ───────────────────────────────────────────────────── */
+.webcam-hud {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 16px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+  backdrop-filter: blur(4px);
+  z-index: 2;
+}
+
+.hud-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.hud-label {
+  font-size: 9px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.hud-value {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.hud-value.good { color: #00ffc8; }
+.hud-value.warn { color: #ffaa00; }
+
+/* ── Telemetry Dashboard ──────────────────────────────────────────── */
+.telemetry-dashboard {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 20px;
+  backdrop-filter: blur(12px);
+}
+
+.telemetry-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e0e0e0;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.telemetry-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00ffc8;
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+/* ── Score Rings ───────────────────────────────────────────────────── */
+.score-rings {
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.score-ring-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.score-ring-label {
+  font-size: 10px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ── Metric Rows ──────────────────────────────────────────────────── */
+.metrics-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metric-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+
+.metric-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.metric-icon {
+  font-size: 14px;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.metric-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #ccc;
+}
+
+.metric-detail {
+  font-size: 9px;
+  color: #666;
+}
+
+.metric-value {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Stress Heatmap ───────────────────────────────────────────────── */
+.stress-heatmap {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.stress-heatmap.empty {
+  text-align: center;
+  color: #666;
+  font-size: 13px;
+  padding: 40px 20px;
+}
+
+.heatmap-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e0e0e0;
+  margin-bottom: 16px;
+}
+
+.heatmap-bars {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  height: 120px;
+}
+
+.heatmap-bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  max-width: 50px;
+}
+
+.heatmap-bar-track {
+  flex: 1;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+
+.heatmap-bar-fill {
+  width: 100%;
+  border-radius: 6px 6px 0 0;
+  transition: height 0.6s ease;
+  min-height: 4px;
+}
+
+.heatmap-bar-label {
+  font-size: 10px;
+  color: #888;
+  font-weight: 600;
+}
+
+.heatmap-bar-value {
+  font-size: 10px;
+  color: #ccc;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Sparkline ────────────────────────────────────────────────────── */
+.heatmap-sparkline {
+  position: relative;
+  height: 60px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.sparkline-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.sparkline-label {
+  position: absolute;
+  bottom: 4px;
+  right: 8px;
+  font-size: 9px;
+  color: #555;
+}
+
+/* ── Heatmap Detail Cards ─────────────────────────────────────────── */
+.heatmap-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.heatmap-detail-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 3px solid #666;
+}
+
+.heatmap-detail-q {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ccc;
+  min-width: 30px;
+}
+
+.heatmap-detail-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 11px;
+  color: #999;
+}
+
+.heatmap-detail-stats strong {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── PDF Report Section ───────────────────────────────────────────── */
+.pdf-report-section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.report-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #e0e0e0;
+  margin-bottom: 6px;
+}
+
+.report-subtitle {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 16px;
+}
+
+.report-preview {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.report-scores-row {
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.report-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.report-score .rv {
+  font-size: 22px;
+  font-weight: 700;
+  color: #00ffc8;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.report-score .rl {
+  font-size: 9px;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.report-tips h5 {
+  font-size: 12px;
+  color: #a78bfa;
+  margin-bottom: 8px;
+}
+
+.report-tip {
+  font-size: 12px;
+  color: #999;
+  line-height: 1.6;
+}
+
+.report-download {
+  width: 100%;
+  padding: 12px;
+  font-size: 14px;
+  border-radius: 12px;
+}
+
+/* ── Interview CV Layout ──────────────────────────────────────────── */
+.interview-cv-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.interview-cv-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.interview-cv-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(167, 139, 250, 0.3) transparent;
+}
+
+/* ── CV Results Layout ────────────────────────────────────────────── */
+.cv-results-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.cv-results-header {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.cv-results-header h3 {
+  font-size: 22px;
+  color: #e0e0e0;
+  margin-bottom: 6px;
+}
+
+.cv-results-header p {
+  font-size: 13px;
+  color: #888;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 800px) {
+  .interview-cv-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .interview-cv-sidebar {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .heatmap-bars {
+    height: 80px;
+  }
+
+  .score-rings {
+    gap: 4px;
+  }
+
+  .report-scores-row {
+    flex-wrap: wrap;
+  }
+}
