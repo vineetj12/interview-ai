@@ -510,7 +510,7 @@ This project is private. All rights reserved.
 
 ## 👨‍💻 Author
 
-**Vineet Jain**
+**Vineet**
 - GitHub: [@vineetj12](https://github.com/vineetj12)
 - Repository: [interview-ai](https://github.com/vineetj12/interview-ai)
 
