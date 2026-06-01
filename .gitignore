@@ -59,7 +59,6 @@ frontend/dist/
 frontend/build/
 
 # ML Service
-ml-service/models/*.pth
 ml-service/data/
 ml-service/archive/
 
