@@ -74,6 +74,10 @@ function App() {
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
 
+  // Coaching generation polling
+  const [coachingIsProcessing, setCoachingIsProcessing] = useState(false);
+  const coachingRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Constants
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -87,6 +91,10 @@ function App() {
   // CV biometric computer vision diagnostics
   const cv = useWebcamCV();
 
+  // Telemetry batching aggregator (5-second window)
+  const telemetryBatchRef = useRef<any[]>([]);
+  const telemetrySendTimeRef = useRef<number>(0);
+
   // Load Auth State from LocalStorage on mount
   useEffect(() => {
     const savedUser = localStorage.getItem('interviewai_user');
@@ -97,10 +105,14 @@ function App() {
     }
   }, []);
 
-  // Teardown WS socket on unmount
+  // Teardown WS socket and coaching polling on unmount
   useEffect(() => {
     return () => {
       if (socketRef.current) socketRef.current.disconnect();
+      if (coachingRefreshRef.current) {
+        clearInterval(coachingRefreshRef.current);
+        coachingRefreshRef.current = null;
+      }
     };
   }, []);
 
@@ -117,13 +129,58 @@ function App() {
     cv.setCurrentQuestionIndex(interviewIndex);
   }, [interviewIndex]);
 
-  // Stream active biometric CV diagnostics through WebSockets
+  // Aggregate telemetry metrics locally every 5 seconds
+  function aggregateTelemetry(samples: any[]) {
+    if (samples.length === 0) return null;
+
+    const aggregated = {
+      sampleCount: samples.length,
+      stress: {
+        avg: samples.reduce((s, m) => s + m.stress.level, 0) / samples.length,
+        min: Math.min(...samples.map(m => m.stress.level)),
+        max: Math.max(...samples.map(m => m.stress.level))
+      },
+      blink: {
+        total: samples.reduce((s, m) => s + (m.blink?.rate || 0), 0),
+        avg: samples.reduce((s, m) => s + (m.blink?.rate || 0), 0) / samples.length
+      },
+      gaze: {
+        screenCount: samples.filter(m => m.gaze.direction === 'screen').length,
+        screenPercent: (samples.filter(m => m.gaze.direction === 'screen').length / samples.length) * 100
+      },
+      motion: {
+        avg: samples.reduce((s, m) => s + m.motion.intensity, 0) / samples.length
+      },
+      emotion: {
+        dominant: samples[samples.length - 1].emotion.dominant
+      },
+      lighting: {
+        avg: samples.reduce((s, m) => s + (m.lighting?.level || 50), 0) / samples.length
+      }
+    };
+    return aggregated;
+  }
+
+  // Batch telemetry updates and send every 5 seconds
   useEffect(() => {
-    if (cv.isActive && user && socketRef.current) {
-      socketRef.current.emit('telemetry:send', {
-        userId: user.id,
-        metrics: cv.metrics
-      });
+    if (!cv.isActive || !user || !socketRef.current) return;
+
+    telemetryBatchRef.current.push(cv.metrics);
+
+    const now = Date.now();
+    const timeSinceLastSend = now - telemetrySendTimeRef.current;
+
+    if (timeSinceLastSend >= 5000) {
+      const aggregated = aggregateTelemetry(telemetryBatchRef.current);
+      if (aggregated) {
+        socketRef.current.emit('telemetry:send', {
+          userId: user.id,
+          aggregated,
+          batchSize: telemetryBatchRef.current.length
+        });
+      }
+      telemetryBatchRef.current = [];
+      telemetrySendTimeRef.current = now;
     }
   }, [cv.metrics, cv.isActive, user]);
 
@@ -389,7 +446,7 @@ function App() {
       // Persist completed evaluation stats along with CV biometric logs
       if (user) {
         try {
-          await interviewService.saveSession({
+          const saveResponse = await interviewService.saveSession({
             domain: interviewDomain,
             overallScore: results.overallScore,
             gazeScore: cv.metrics.gaze.score,
@@ -412,6 +469,41 @@ function App() {
               improvements: results.improvements,
             }
           });
+
+          // If coaching is being generated asynchronously, start polling
+          if (saveResponse.coachingStatus === 'processing') {
+            setCoachingIsProcessing(true);
+            
+            // Poll for coaching completion every 2 seconds
+            coachingRefreshRef.current = setInterval(async () => {
+              try {
+                const sessions = await interviewService.getSessions();
+                const latestSession = sessions?.[0];
+                
+                // Check if coaching has been updated (no longer "Analyzing...")
+                if (latestSession?.feedback?.coachingTips?.pattern_label && 
+                    latestSession.feedback.coachingTips.pattern_label !== "Analyzing...") {
+                  // Coaching has been generated, update results
+                  setInterviewResult({
+                    summary: results.summary,
+                    strengths: results.strengths,
+                    improvements: results.improvements,
+                    overallScore: results.overallScore,
+                    coachingTips: latestSession.feedback.coachingTips
+                  });
+                  setCoachingIsProcessing(false);
+                  
+                  // Clear the polling interval
+                  if (coachingRefreshRef.current) {
+                    clearInterval(coachingRefreshRef.current);
+                    coachingRefreshRef.current = null;
+                  }
+                }
+              } catch (pollErr) {
+                console.error("Error polling for coaching update:", pollErr);
+              }
+            }, 2000);
+          }
 
           // Reload sessions logs
           await fetchPastSessions();

@@ -1,12 +1,19 @@
 import express, { Request, Response } from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
+import crypto from "crypto";
 import cors from "cors";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import multer from "multer";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createClient, RedisClientType } from "redis";
 import prisma from "./prisma.js";
+import {
+  resumeReviewQueue,
+  sessionAnalyticsQueue,
+  reportGenerationQueue,
+} from "./queue.js";
 import {
   generateTokens,
   authMiddleware,
@@ -77,6 +84,36 @@ const sarvamTtsModel = process.env.SARVAM_TTS_MODEL || "bulbul:v3";
 const sarvamTtsSpeaker = process.env.SARVAM_TTS_SPEAKER || "shubh";
 const sarvamTtsLang = process.env.SARVAM_TTS_LANG || "hi-IN";
 
+const redisUrl = process.env.REDIS_URL || process.env.REDIS_TLS_URL;
+const cacheTtlSeconds = Number(process.env.CACHE_TTL_SECONDS ?? 86400);
+const redisClient: RedisClientType | null = redisUrl ? createClient({ url: redisUrl }) : null;
+const cacheEnabled = Boolean(redisClient);
+
+if (redisClient) {
+  redisClient.on("error", (err) => console.error("Redis error:", err));
+  redisClient.connect().catch((err) => console.error("Redis connect failed:", err));
+}
+
+function makeCacheKey(prefix: string, payload: string) {
+  return `${prefix}:${crypto.createHash("sha256").update(payload).digest("hex")}`;
+}
+
+async function getCached<T>(key: string): Promise<T | null> {
+  if (!redisClient) return null;
+  const cached = await redisClient.get(key);
+  if (!cached) return null;
+  try {
+    return JSON.parse(cached) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function setCached(key: string, value: unknown, ttl = cacheTtlSeconds) {
+  if (!redisClient) return;
+  await redisClient.set(key, JSON.stringify(value), { EX: ttl });
+}
+
 // ── Socket.io Setup for Real-time Telemetry ───────────────────────────
 const io = new Server(httpServer, {
   cors: {
@@ -94,31 +131,56 @@ io.on("connection", (socket) => {
   });
 
   socket.on("telemetry:send", async (data) => {
-    // Process real-time telemetry from frontend
-    // Can hook into ML FastAPI in real time if a camera frame base64 is sent
-    const { userId, metrics } = data;
-    if (!userId || !metrics) return;
+    // Process batched telemetry from frontend (aggregated every 5 seconds)
+    const { userId, aggregated, metrics, batchSize } = data;
+    if (!userId) return;
 
-    // Call ML service in the background for real-time stress verification if needed
-    const predicted = await predictStress({
-      blink_rate: metrics.blink?.rate || 0,
-      gaze_away_ratio: metrics.gaze?.direction !== "screen" ? 1.0 : 0.0,
-      motion_intensity: metrics.motion?.intensity || 0,
-      face_luminance: metrics.lighting?.level || 50,
-      smile_intensity: metrics.smile?.intensity || 0,
-      nod_frequency: metrics.headNod?.frequency || 0,
-      posture_score: metrics.posture?.score || 80,
-    });
+    // Support both aggregated format (new) and raw metrics (legacy)
+    let stressInput = {
+      blink_rate: 0,
+      gaze_away_ratio: 0,
+      motion_intensity: 0,
+      face_luminance: 50,
+      smile_intensity: 0,
+      nod_frequency: 0,
+      posture_score: 80,
+    };
 
-    const liveStress = predicted ? predicted.stress_level : metrics.stress?.level || 0;
+    if (aggregated) {
+      // New aggregated format (5-second batch)
+      stressInput = {
+        blink_rate: aggregated.blink?.avg || 0,
+        gaze_away_ratio: 1 - (aggregated.gaze?.screenPercent || 100) / 100,
+        motion_intensity: aggregated.motion?.avg || 0,
+        face_luminance: aggregated.lighting?.avg || 50,
+        smile_intensity: 0,
+        nod_frequency: 0,
+        posture_score: 80,
+      };
+    } else if (metrics) {
+      // Legacy raw metrics format (for backwards compatibility)
+      stressInput = {
+        blink_rate: metrics.blink?.rate || 0,
+        gaze_away_ratio: metrics.gaze?.direction !== "screen" ? 1.0 : 0.0,
+        motion_intensity: metrics.motion?.intensity || 0,
+        face_luminance: metrics.lighting?.level || 50,
+        smile_intensity: metrics.smile?.intensity || 0,
+        nod_frequency: metrics.headNod?.frequency || 0,
+        posture_score: metrics.posture?.score || 80,
+      };
+    }
+
+    const predicted = await predictStress(stressInput);
+    const liveStress = predicted ? predicted.stress_level : 50;
 
     // Send back calculated premium stats to client
     socket.emit("telemetry:processed", {
       timestamp: Date.now(),
       liveStress,
-      predictedLabel: predicted?.label || metrics.stress?.label || "Low",
+      predictedLabel: predicted?.label || "Moderate",
       predictedFactors: predicted?.factors || {},
-      engagement: metrics.engagement || 50,
+      engagement: aggregated?.motion?.avg || 50,
+      batchSize: batchSize || 1,
     });
   });
 
@@ -321,6 +383,12 @@ app.post("/api/resume/review", authMiddleware, async (req: AuthRequest, res: Res
     const genAI = new GoogleGenerativeAI(geminiApiKey);
     const model = genAI.getGenerativeModel({ model: geminiModel });
 
+    const cacheKey = makeCacheKey("resume-review", `${domain || "general software"}:${text}`);
+    if (cacheEnabled) {
+      const cached = await getCached<unknown>(cacheKey);
+      if (cached) return res.json(cached);
+    }
+
     const prompt = `You are a resume reviewer. Analyze the resume text for the target domain: ${
       domain || "general software"
     }.
@@ -334,19 +402,112 @@ Resume text:\n${text}`;
     const parsed = extractJson(responseText);
 
     if (!parsed) {
-      return res.status(200).json({
+      const fallbackResponse = {
         summary: "Review completed.",
         strengths: [],
         improvements: ["Could not parse structured response."],
         keywordsToAdd: [],
         overallScore: 0,
-        raw: responseText
-      });
+        raw: responseText,
+      };
+      if (cacheEnabled) await setCached(cacheKey, fallbackResponse);
+      return res.status(200).json(fallbackResponse);
     }
 
+    if (cacheEnabled) await setCached(cacheKey, parsed);
     return res.json(parsed);
   } catch (error) {
     return res.status(500).json({ error: "Failed to review resume." });
+  }
+});
+
+app.post("/api/queue/resume-review", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { text, domain } = req.body || {};
+    if (!text || text.length < 50) {
+      return res.status(400).json({ error: "Resume text is too short." });
+    }
+
+    const job = await resumeReviewQueue.add(
+      "resume-review",
+      { text, domain },
+      {
+        removeOnComplete: 3600,
+        removeOnFail: 86400,
+      }
+    );
+
+    return res.json({ jobId: job.id, queue: "resume-review" });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to enqueue resume review job." });
+  }
+});
+
+app.post("/api/queue/session-analytics", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { sessionId, payload } = req.body || {};
+    if (!sessionId || !payload) {
+      return res.status(400).json({ error: "Session ID and payload are required." });
+    }
+
+    const job = await sessionAnalyticsQueue.add(
+      "session-analytics",
+      { sessionId, payload },
+      {
+        removeOnComplete: 3600,
+        removeOnFail: 86400,
+      }
+    );
+
+    return res.json({ jobId: job.id, queue: "session-analytics" });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to enqueue session analytics job." });
+  }
+});
+
+app.post("/api/queue/report-generation", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { userId, title, payload } = req.body || {};
+    if (!userId) {
+      return res.status(400).json({ error: "User ID is required for report generation." });
+    }
+
+    const job = await reportGenerationQueue.add(
+      "report-generation",
+      { userId, title, payload },
+      {
+        removeOnComplete: 3600,
+        removeOnFail: 86400,
+      }
+    );
+
+    return res.json({ jobId: job.id, queue: "report-generation" });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to enqueue report generation job." });
+  }
+});
+
+app.get("/api/queue/status/:jobId", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const jobId = req.params.jobId;
+    const queues = [resumeReviewQueue, sessionAnalyticsQueue, reportGenerationQueue];
+
+    for (const queue of queues) {
+      const job = await queue.getJob(jobId);
+      if (job) {
+        return res.json({
+          id: job.id,
+          name: job.name,
+          state: await job.getState(),
+          data: job.data,
+          failedReason: job.failedReason,
+        });
+      }
+    }
+
+    return res.status(404).json({ error: "Job not found." });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to read job status." });
   }
 });
 
@@ -366,6 +527,12 @@ app.post("/api/interview/start", authMiddleware, async (req: AuthRequest, res: R
     const genAI = new GoogleGenerativeAI(geminiApiKey);
     const model = genAI.getGenerativeModel({ model: geminiModel });
 
+    const cacheKey = makeCacheKey("interview-questions", `${domain}:${questionCount}`);
+    if (cacheEnabled) {
+      const cached = await getCached<{ questions: string[] }>(cacheKey);
+      if (cached) return res.json(cached);
+    }
+
     const prompt = `Generate ${questionCount} interview questions for the role/domain: ${domain}.
 Return JSON only with the shape:
 {\n  "questions": ["string"]\n}`;
@@ -380,10 +547,14 @@ Return JSON only with the shape:
         .map((line) => line.replace(/^\d+\.?\s*/, "").trim())
         .filter(Boolean)
         .slice(0, questionCount);
-      return res.json({ questions: fallback });
+      const responsePayload = { questions: fallback };
+      if (cacheEnabled) await setCached(cacheKey, responsePayload);
+      return res.json(responsePayload);
     }
 
-    return res.json({ questions: parsed.questions.slice(0, questionCount) });
+    const responsePayload = { questions: parsed.questions.slice(0, questionCount) };
+    if (cacheEnabled) await setCached(cacheKey, responsePayload);
+    return res.json(responsePayload);
   } catch (error) {
     return res.status(500).json({ error: "Failed to generate questions." });
   }
@@ -551,6 +722,12 @@ app.post("/api/interview/evaluate", authMiddleware, async (req: AuthRequest, res
       .map((item: { question?: string; answer?: string }, index: number) => `Q${index + 1}: ${item.question}\nA${index + 1}: ${item.answer}`)
       .join("\n\n");
 
+    const cacheKey = makeCacheKey("interview-eval", `${domain}:${JSON.stringify(answers)}`);
+    if (cacheEnabled) {
+      const cached = await getCached<unknown>(cacheKey);
+      if (cached) return res.json(cached);
+    }
+
     const prompt = `You are an interview coach. Review the answers for the domain: ${domain}.
 Return JSON only with the shape:
 {\n  "summary": "string",\n  "strengths": ["string"],\n  "improvements": ["string"],\n  "overallScore": 0-100\n}
@@ -562,15 +739,18 @@ Interview transcript:\n${formatted}`;
     const parsed = extractJson(responseText);
 
     if (!parsed) {
-      return res.status(200).json({
+      const fallbackResponse = {
         summary: "Evaluation completed.",
         strengths: [],
         improvements: ["Could not parse structured response."],
         overallScore: 0,
-        raw: responseText
-      });
+        raw: responseText,
+      };
+      if (cacheEnabled) await setCached(cacheKey, fallbackResponse);
+      return res.status(200).json(fallbackResponse);
     }
 
+    if (cacheEnabled) await setCached(cacheKey, parsed);
     return res.json(parsed);
   } catch (error) {
     return res.status(500).json({ error: "Failed to evaluate interview." });
@@ -601,56 +781,7 @@ app.post(
       }
       const userId = req.userId!;
 
-      // 1. Incorporate ML predictions
-      let finalCalm = calmScore;
-      if (stressTimeline && stressTimeline.length > 0) {
-        const avgBlink = stressTimeline.reduce((sum: number, pt: any) => sum + (pt.blinks || 0), 0) / stressTimeline.length;
-        const avgGazeAway = stressTimeline.filter((pt: any) => pt.gaze !== "screen").length / stressTimeline.length;
-        const avgMotion = stressTimeline.reduce((sum: number, pt: any) => sum + (pt.stress || 0), 0) / stressTimeline.length;
-
-        const predicted = await predictStress({
-          blink_rate: avgBlink,
-          gaze_away_ratio: avgGazeAway,
-          motion_intensity: avgMotion,
-          face_luminance: metricsDetail?.lighting || 50,
-          smile_intensity: metricsDetail?.smile || 0,
-          nod_frequency: metricsDetail?.headNod || 0,
-          posture_score: postureScore || 80,
-        });
-
-        if (predicted) {
-          finalCalm = Math.round(100 - predicted.stress_level);
-        }
-      }
-
-      // 2. Generate customized coaching feedback
-      const emotionDominant = stressTimeline && stressTimeline.length > 0
-        ? stressTimeline[stressTimeline.length - 1].emotion || "neutral"
-        : "neutral";
-
-      const coachFeedback = await generateCoaching({
-        domain,
-        overallScore: overallScore || 50,
-        avgStress: 100 - (finalCalm || 50),
-        engagementScore: engagementScore || 50,
-        emotionSummary: emotionDominant,
-        strengths: feedback?.strengths || [],
-        improvements: feedback?.improvements || [],
-      });
-
-      const mergedFeedback = {
-        ...(feedback || {}),
-        coachingTips: coachFeedback || {
-          strengths: feedback?.strengths || [],
-          improvements: feedback?.improvements || [],
-          stress_management: ["Ensure proper lighting and clear gaze direction."],
-          practice_plan: ["Complete another 5-question mock session on this domain."],
-          confidence_tips: ["Keep a steady eye level and pause between key points."],
-          pattern_label: "Consistent Learner",
-          next_focus: "Work on posture alignment and maintaining eye contact."
-        }
-      };
-
+      // Create session immediately with placeholder coaching
       const session = await prisma.interviewSession.create({
         data: {
           userId,
@@ -658,16 +789,54 @@ app.post(
           overallScore: overallScore ? Math.round(overallScore) : null,
           gazeScore: gazeScore ? Math.round(gazeScore) : null,
           postureScore: postureScore ? Math.round(postureScore) : null,
-          calmScore: finalCalm ? Math.round(finalCalm) : null,
+          calmScore: calmScore ? Math.round(calmScore) : null,
           engagementScore: engagementScore ? Math.round(engagementScore) : null,
           bodyLanguageScore: bodyLanguageScore ? Math.round(bodyLanguageScore) : null,
           stressTimeline: stressTimeline ? JSON.parse(JSON.stringify(stressTimeline)) : null,
           metricsDetail: metricsDetail ? JSON.parse(JSON.stringify(metricsDetail)) : null,
-          feedback: JSON.parse(JSON.stringify(mergedFeedback)),
+          feedback: {
+            summary: feedback?.summary || "",
+            strengths: feedback?.strengths || [],
+            improvements: feedback?.improvements || [],
+            coachingTips: {
+              strengths: feedback?.strengths || [],
+              improvements: feedback?.improvements || [],
+              stress_management: [],
+              practice_plan: [],
+              confidence_tips: [],
+              pattern_label: "Analyzing...",
+              next_focus: "Generating personalized coaching feedback..."
+            }
+          },
         },
       });
 
-      return res.status(201).json({ session });
+      // Enqueue coaching generation and analytics to worker
+      await sessionAnalyticsQueue.add(
+        "session-analytics",
+        {
+          sessionId: session.id,
+          userId,
+          domain,
+          overallScore,
+          stressTimeline,
+          metricsDetail,
+          feedback,
+          calmScore,
+          engagementScore,
+        },
+        {
+          removeOnComplete: 86400,
+          removeOnFail: 604800,
+        }
+      );
+
+      // Return immediately with the session
+      return res.status(201).json({
+        session,
+        coachingStatus: "processing",
+        message: "Session saved. Coaching feedback is being generated in background."
+      });
     } catch (error) {
       console.error("Prisma save session error:", error);
       return res.status(500).json({ error: "Failed to save interview session." });

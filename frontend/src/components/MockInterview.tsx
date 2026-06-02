@@ -465,59 +465,95 @@ export default function MockInterview({
 
                 {/* Secure Gemini AI Coaching Recommendation */}
                 <GlassCard style={{ borderLeft: '4px solid #a78bfa', backgroundColor: 'rgba(167, 139, 250, 0.03)' }}>
-                  <h4 style={{ color: '#a78bfa', fontSize: '15px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 16px' }}>
-                    🧠 Expert AI Coaching Recommendations
-                  </h4>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h4 style={{ color: '#a78bfa', fontSize: '15px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                      🧠 Expert AI Coaching Recommendations
+                    </h4>
+                    {interviewResult.coachingTips?.pattern_label === "Analyzing..." && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#a78bfa' }}>
+                        <div 
+                          style={{ 
+                            width: '8px', 
+                            height: '8px', 
+                            background: '#a78bfa', 
+                            borderRadius: '50%', 
+                            animation: 'pulse 1.5s infinite' 
+                          }} 
+                        />
+                        Generating...
+                      </div>
+                    )}
+                  </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div>
                       <h5 style={{ color: '#fff', fontSize: '13px', fontWeight: 'bold', margin: '0 0 4px' }}>Behavioral Profile</h5>
                       <span className="badge" style={{ display: 'inline-block', backgroundColor: 'rgba(167, 139, 250, 0.1)', color: '#a78bfa', border: '1px solid rgba(167, 139, 250, 0.2)', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold' }}>
-                        {interviewResult.coachingTips?.pattern_label || "Consistent Learner"}
+                        {interviewResult.coachingTips?.pattern_label === "Analyzing..." ? (
+                          <span style={{ opacity: 0.6 }}>Analyzing behavior patterns...</span>
+                        ) : (
+                          interviewResult.coachingTips?.pattern_label || "Consistent Learner"
+                        )}
                       </span>
                     </div>
 
                     <div>
                       <h5 style={{ color: '#fff', fontSize: '13px', fontWeight: 'bold', margin: '0 0 6px' }}>Stress Management Guidelines</h5>
-                      <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {(interviewResult.coachingTips?.stress_management || [
-                          "Maintain a steady eye direction to express active composure.",
-                          "Coordinate breathing pauses between core structural responses."
-                        ]).map((tip, idx) => (
-                          <li key={idx} style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tip}</li>
-                        ))}
-                      </ul>
+                      {interviewResult.coachingTips?.pattern_label === "Analyzing..." ? (
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>Generating personalized stress management tips...</p>
+                      ) : (
+                        <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {(interviewResult.coachingTips?.stress_management || [
+                            "Maintain a steady eye direction to express active composure.",
+                            "Coordinate breathing pauses between core structural responses."
+                          ]).map((tip, idx) => (
+                            <li key={idx} style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tip}</li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
 
                     <div>
                       <h5 style={{ color: '#fff', fontSize: '13px', fontWeight: 'bold', margin: '0 0 6px' }}>5-Day Targeted Practice Plan</h5>
-                      <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {(interviewResult.coachingTips?.practice_plan || [
-                          "Practice structural interview framework techniques like STAR formats.",
-                          "Launch another 5-question mock session focusing entirely on the Software domain."
-                        ]).map((plan, idx) => (
-                          <li key={idx} style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{plan}</li>
-                        ))}
-                      </ul>
+                      {interviewResult.coachingTips?.pattern_label === "Analyzing..." ? (
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>Generating practice recommendations...</p>
+                      ) : (
+                        <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {(interviewResult.coachingTips?.practice_plan || [
+                            "Practice structural interview framework techniques like STAR formats.",
+                            "Launch another 5-question mock session focusing entirely on the Software domain."
+                          ]).map((plan, idx) => (
+                            <li key={idx} style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{plan}</li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
 
                     <div>
                       <h5 style={{ color: '#fff', fontSize: '13px', fontWeight: 'bold', margin: '0 0 6px' }}>Confidence Building Tips</h5>
-                      <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {(interviewResult.coachingTips?.confidence_tips || [
-                          "Express natural body language and sit upright to command attention.",
-                          "Keep a solid eye contact score and pause before answering."
-                        ]).map((tip, idx) => (
-                          <li key={idx} style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tip}</li>
-                        ))}
-                      </ul>
+                      {interviewResult.coachingTips?.pattern_label === "Analyzing..." ? (
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>Generating confidence tips...</p>
+                      ) : (
+                        <ul style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {(interviewResult.coachingTips?.confidence_tips || [
+                            "Express natural body language and sit upright to command attention.",
+                            "Keep a solid eye contact score and pause before answering."
+                          ]).map((tip, idx) => (
+                            <li key={idx} style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{tip}</li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
 
                     <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px', marginTop: '4px' }}>
                       <h5 style={{ color: '#00ffc8', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px' }}>Immediate Recruiter Standout Focus</h5>
-                      <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                        "{interviewResult.coachingTips?.next_focus || "Focus on stabilizing eye contact rates and solidifying postural composure."}"
-                      </p>
+                      {interviewResult.coachingTips?.pattern_label === "Analyzing..." ? (
+                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Generating focused recommendations...</p>
+                      ) : (
+                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                          "{interviewResult.coachingTips?.next_focus || "Focus on stabilizing eye contact rates and solidifying postural composure."}"
+                        </p>
+                      )}
                     </div>
 
                   </div>
