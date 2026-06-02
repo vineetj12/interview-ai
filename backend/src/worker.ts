@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import { Worker, Job } from "bullmq";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import express from "express";
 import prisma from "./prisma.js";
 import { generateCoaching } from "./services/coachingService.js";
 import { predictStress } from "./services/mlService.js";
@@ -220,3 +221,23 @@ new Worker<ReportGenerationJob>(
   });
 
 console.log("🎧 Worker process started for resume-review, session-analytics, and report-generation queues.");
+
+// Health check server for Render (requires open port)
+const app = express();
+const PORT = process.env.PORT || 3002;
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", message: "Worker is running" });
+});
+
+app.get("/", (req, res) => {
+  res.json({ 
+    service: "InterviewAI Worker", 
+    status: "running",
+    queues: ["resume-review", "session-analytics", "report-generation"]
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`✅ Worker health check server listening on port ${PORT}`);
+});
